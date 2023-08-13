@@ -8,13 +8,13 @@ Prerequirements:
 
 Install steps:
 
-1. On LOCAL mashine 
+1. On LOCAL computer 
 ```bash
 sudo apt-get install ansible
 ```
 2. Edit `common_vars.yml`. It is file with main settings.
 3. Edit `inventory` file to add IP of your remote hosts to install VPN+Pihole, in this file possible to set ssh access params
-4. Execute command on LOCAL mashine (in dir with deploy.yml file) 
+4. Execute command on LOCAL computer (in dir with deploy.yml file) 
 ```bash
 ansible-playbook --ask-become-pass ./deploy.yml
 ```
