@@ -1,0 +1,67 @@
+---
+- name: Gather facts
+  ansible.builtin.setup:
+  tags: [docker_install]
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  tags: [docker_install]
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: "deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+  tags: [docker_install]
+
+- name: Install required system packages
+  apt:
+    pkg:
+      - aptitude
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+      - virtualenv
+      - python3-setuptools
+      - docker-compose
+      - docker-ce
+    state: present
+    update_cache: true
+  tags: [docker_install]
+
+- name: Install Docker Module for Python
+  pip:
+    name: docker
+  tags: [docker_install]
+
+- name: Set DNS server especially for docker daemon (because we will remove systemd resolved from localhost interface)
+  template:
+    src: daemon.j2.json
+    dest: /etc/docker/daemon.json
+    mode: 0600
+  tags: [docker_install]
+
+- name: Restart docker service for resolve problems with network configuration
+  service:
+    name: docker
+    enabled: true
+    state: restarted
+  tags: [docker_install]
+
+- name: "ATTENTION: Disable external access to docker containers"
+  iptables:
+    table: filter
+    chain: DOCKER-USER
+    in_interface: "{{ default_external_interface }}"
+    source: "! {{ vpn_net }}.0/24"
+    jump: DROP
+
+- name: Create containers directory
+  file:
+    path: /etc/docker/compose
+    state: directory
+    mode: 0700
+  tags: [docker_install]

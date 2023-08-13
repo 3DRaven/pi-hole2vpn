@@ -1,0 +1,102 @@
+---
+# tasks file for pi_hole_install
+- name: Include common variables
+  include_vars: common_vars.yml
+  tags: [pi_hole_install]
+  
+- name: Install required system packages
+  apt:
+    pkg:
+      - sqlite3
+    state: present
+    update_cache: true
+  tags: [pi_hole_install]
+
+- name: Create docker compose configuration directory
+  file:
+    path: /etc/docker/compose/pi-hole
+    state: directory
+    mode: 0700
+  become: true
+  tags: [pi_hole_install]
+
+- name: Create docker-compose config for pi-hole
+  template:
+    src: docker-compose.j2.yml
+    dest: /etc/docker/compose/pi-hole/docker-compose.yml
+    mode: 0600
+  tags: [pi_hole_install]
+
+- name: Replace DNSStubListener line in resolved.conf because systemd-resolved listen on 53 port (https://github.com/pi-hole/docker-pi-hole/tree/master)
+  lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#DNSStubListener=yes'
+    line: 'DNSStubListener=no'
+  tags: [pi_hole_install]
+
+# - name: Set local default DNS for preventing future errors 
+#   lineinfile:
+#     path: /etc/systemd/resolved.conf
+#     regexp: '^#DNS='
+#     line: "DNS={{ default_system_dns }}"
+#   tags: [pi_hole_install]
+
+- name: Remove default resolve.conf file
+  file:
+    path: /etc/resolv.conf
+    state: absent
+  tags: [pi_hole_install]
+
+- name: Create a symbolic link for real resolve.conf
+  file:
+    src: /run/systemd/resolve/resolv.conf
+    dest: /etc/resolv.conf
+    state: link
+  tags: [pi_hole_install]
+
+- name: Restart systemd-resolved service for reloading settings
+  service:
+    name: systemd-resolved
+    state: restarted
+  tags: [pi_hole_install]
+
+- name: Stop possible old pihole docker-compose started container
+  community.docker.docker_compose:
+    project_src: /etc/docker/compose/pi-hole
+    state: absent
+  tags: [pi_hole_install]
+
+- name: Stop possible old pihole docker started container
+  docker_container:
+    name: pihole
+    state: absent
+    container_default_behavior: no_defaults
+    force_kill: true
+  tags: [pi_hole_install]
+
+- name: Remove old password for pihole admin 
+  lineinfile:
+    path: /etc/systemd/resolved/etc/docker/compose/pi-hole/setupVars.conf
+    regexp: '^WEBPASSWORD.*'
+    state: absent
+  tags: [pi_hole_install]
+
+- name: Restart docker service for resolve problems with network configuration
+  service:
+    name: docker
+    enabled: true
+    state: restarted
+  tags: [pi_hole_install]
+
+- name: Start new pihole container
+  community.docker.docker_compose:
+    project_src: /etc/docker/compose/pi-hole
+    state: present
+    # restarted: true
+    # debug: true
+  tags: [pi_hole_install]
+
+- name: Waiting pihole full up
+  ansible.builtin.wait_for:
+    port: 53
+    host: "{{ vpn_net }}.1"

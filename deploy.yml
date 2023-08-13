@@ -1,0 +1,42 @@
+---
+- hosts: vpn
+  become: true
+  roles:
+    - user_creation
+  tags: [user_cration]
+
+- hosts: vpn
+  become: true
+  roles:
+    - vpn_installation
+  tags: [vpn_installation]
+
+- hosts: vpn
+  become: true
+  roles:
+    - docker_install
+  tags: [docker_installation]
+
+- hosts: vpn
+  become: true
+  roles:
+    - pi_hole_install
+  tags: [pi_hole_installation]
+
+- hosts: vpn
+  become: true
+  roles:
+    - adblock_add
+  tags: [adblock_add]
+
+- hosts: vpn
+  become: true
+  roles:
+    - adblock_remove
+  tags: [adblock_remove]
+
+- hosts: vpn
+  become: true
+  roles:
+    - disable_ubuntu_user
+  tags: [disable_ubuntu_user]

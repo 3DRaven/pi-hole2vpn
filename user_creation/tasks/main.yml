@@ -1,0 +1,21 @@
+- name: Include common variables
+  include_vars: common_vars.yml
+  tags: [user_init]
+
+- name: Create user '{{ user_to_add }}'
+  user:
+    name: "{{ user_to_add }}"
+    state: present
+    create_home: true
+    groups: sudo
+    append: true
+    password: "{{ user_password | password_hash('sha512') }}"
+    shell: /bin/bash
+  tags: [user_init]
+
+- name: Add SSH public key for user
+  authorized_key:
+    user: "{{ user_to_add }}"
+    state: present
+    key: "{{ lookup('file', '/home/' + user_to_add+ '/.ssh/id_rsa.pub') }}"
+  tags: [user_init]

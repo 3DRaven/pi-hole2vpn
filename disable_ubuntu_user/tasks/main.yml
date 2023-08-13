@@ -1,0 +1,13 @@
+---
+# tasks file for disable_ubuntu_user
+- name: Include common variables
+  include_vars: common_vars.yml
+  tags: [disable_ubuntu_user]
+
+- name: Disable login for default Ubuntu user without sudo password because we created another
+  user: 
+    name: "{{ default_user }}"
+    state: present
+    shell: /sbin/nologin
+    password_lock: yes
+  tags: [disable_ubuntu_user]

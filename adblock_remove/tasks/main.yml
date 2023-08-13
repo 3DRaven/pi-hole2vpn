@@ -1,0 +1,14 @@
+---
+# tasks file for adblock_add
+- name: Remove adblock lists from pihole gravity.db
+  command: sqlite3 /etc/docker/compose/pi-hole/etc-pihole/gravity.db "DELETE FROM adlist WHERE address='{{ item }}'"
+  register: insert_result
+  until: insert_result.rc == 0
+  retries: 10
+  delay: 5
+  with_lines: cat adlists_remove.txt
+  tags: [adblock_remove]
+
+- name: Reload pihole gravity
+  command: docker exec pihole pihole -g
+  tags: [adblock_remove]

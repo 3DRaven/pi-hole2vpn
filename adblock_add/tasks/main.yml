@@ -1,0 +1,14 @@
+---
+# tasks file for adblock_add
+- name: Import adblock lists to pihole gravity.db
+  command: sqlite3 /etc/docker/compose/pi-hole/etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('{{ item }}', 1, 'comment');"
+  register: insert_result
+  until: insert_result.rc == 0
+  retries: 10
+  delay: 5
+  with_lines: cat adlists_add.txt
+  tags: [adblock_add]
+
+- name: Reload pihole gravity
+  command: docker exec pihole pihole -g
+  tags: [adblock_add]

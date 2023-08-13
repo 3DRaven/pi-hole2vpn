@@ -1,0 +1,14 @@
+---
+- name: Create client configuration {{ item }}
+  template:
+    src: wireguard_client.j2.conf
+    dest: "/etc/wireguard/clients/client_{{ item }}.conf"
+    mode: 0600
+  tags: [wireguard]
+
+- name: Generate QR code {{ item }}
+  ansible.builtin.shell: "set -o pipefail && cat /etc/wireguard/clients/client_{{ item }}.conf | qrencode -t utf8 -o /etc/wireguard/clients/client_{{ item }}.txt"
+  args:
+    executable: /bin/bash
+  changed_when: true
+  tags: [wireguard]

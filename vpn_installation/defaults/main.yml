@@ -1,0 +1,6 @@
+---
+# defaults file for vpn_installation
+wireguard_interface: wg0
+wireguard_listen_port: 51820
+ssh_port: 22
+clients_count: 1

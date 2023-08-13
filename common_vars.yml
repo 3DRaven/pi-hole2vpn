@@ -1,0 +1,12 @@
+vpn_net: 10.0.0 #start of network address without last digit
+user_to_add: user #user to add to remote host for ssh login instead of root
+user_password: password #password for added user
+default_system_dns: 9.9.9.9 #remote host DNS for resolving addresses witout pihole
+pi_hole_admin_password: password #password for pihole admin panel
+ssh_port: 22 #remote host ssh port
+clients_count: 10 #how many client configurations to generate
+wireguard_interface: wg0 #name of vpn interface and config file too
+wireguard_listen_port: 51820 #port for listening for vpn
+default_external_interface: ens5 #external interface on your VPS (on Amazon EC2 it is ens5, or may be eth0)
+public_server_addr: 183.eu-north-1.compute.amazonaws.com #DNS name or IP addr of remote server
+default_user: ubuntu

@@ -1,0 +1,58 @@
+---
+- name: Generate WireGuard client private key {{ item }}
+  ansible.builtin.command: "wg genkey"
+  register: wireguard_client_private_key
+  changed_when: false
+  tags: [wireguard]
+
+- name: Wireguard client private key {{ item }}
+  debug:
+    var: wireguard_client_private_key
+    verbosity: 3
+  tags: [wireguard]
+
+- name: Set facts with client private key variable name {{ item }}
+  set_fact:
+    "wireguard_client_private_key_variable_name": "wireguard_client_private_key_{{ item }}"
+  tags: [wireguard]
+
+- name: Set facts with client private key {{ item }}
+  set_fact:
+    "{{ wireguard_client_private_key_variable_name }}": "{{ wireguard_client_private_key.stdout }}"
+  tags: [wireguard]
+
+- name: Generate WireGuard client public key {{ item }}
+  ansible.builtin.command: "wg pubkey"
+  args:
+    stdin: "{{ vars[wireguard_client_private_key_variable_name] }}"
+  register: wireguard_client_public_key
+  changed_when: false
+  tags: [wireguard]
+
+- name: Wireguard client public key {{ item }}
+  debug:
+    var: wireguard_client_public_key
+    verbosity: 3
+  tags: [wireguard]
+
+- name: Set facts with client public key {{ item }}
+  set_fact:
+    "wireguard_client_public_key_{{ item }}": "{{ wireguard_client_public_key.stdout }}"
+  tags: [wireguard]
+
+- name: Generate WireGuard preshared key {{ item }}
+  ansible.builtin.command: "wg genpsk"
+  register: wireguard_preshared_key
+  changed_when: false
+  tags: [wireguard]
+
+- name: Wireguard client preshared key {{ item }}
+  debug:
+    var: wireguard_preshared_key
+    verbosity: 3
+  tags: [wireguard]
+
+- name: Set facts with client preshared key {{ item }}
+  set_fact:
+    "wireguard_preshared_key_{{ item }}": "{{ wireguard_preshared_key.stdout }}"
+  tags: [wireguard]

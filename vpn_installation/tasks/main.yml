@@ -1,0 +1,136 @@
+---
+# tasks file for vpn_installation
+- name: Include common variables
+  include_vars: common_vars.yml
+  tags: [wireguard]
+
+- name: Install WireGuard packages
+  apt:
+    name:
+      - wireguard-tools
+      - wireguard
+      - qrencode
+      # - net-tools
+      - iptables-persistent
+      - mc
+    state: present
+    update_cache: true
+  tags: [wireguard]
+
+- name: Create iptables v4 rules file
+  template:
+    src: iptables.v4.j2.rules
+    dest: /etc/iptables/rules.v4
+    mode: 0700
+  tags: [wireguard]
+
+- name: Restore iptables state from the file
+  community.general.iptables_state:
+    state: restored
+    path: /etc/iptables/rules.v4
+  async: "{{ ansible_timeout }}"
+  poll: 0
+  tags: [wireguard]
+
+- name: Enable IPv4 forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: true
+    sysctl_set: true
+  tags: [wireguard]
+
+- name: Find old generated client configs
+  ansible.builtin.find:
+    paths: /etc/wireguard/clients
+    recurse: no
+  register: old_files_to_copy
+  tags: [wireguard]
+
+- name: Remove old configs
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items: "{{ old_files_to_copy.files | map(attribute='path') | list }}"
+  tags: [wireguard]
+
+- name: Generate WireGuard server private key
+  ansible.builtin.command: "wg genkey"
+  register: wireguard_server_private_key
+  changed_when: false
+  tags: [wireguard]
+
+- name: Wireguard server private key
+  ansible.builtin.debug:
+    var: wireguard_server_private_key
+    verbosity: 3
+  tags: [wireguard]
+
+- name: Generate WireGuard server public key
+  ansible.builtin.command: "wg pubkey"
+  args:
+    stdin: "{{ wireguard_server_private_key.stdout }}"
+  register: wireguard_server_public_key
+  changed_when: false
+  tags: [wireguard]
+
+- name: Wireguard server public key
+  debug:
+    var: wireguard_server_public_key
+    verbosity: 3
+  tags: [wireguard]
+
+- name: Clients keys generation
+  include_tasks: client_keys_generation.yml
+  loop: "{{ range(1, clients_count + 1) | list }}"
+  tags: [wireguard]
+
+- name: Create interface configuration
+  template:
+    src: wireguard_interface.j2.conf
+    dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
+    mode: 0600
+  notify: reload wireguard config
+  tags: [wireguard]
+  
+- name: Create WireGuard clients remote directory
+  file:
+    path: /etc/wireguard/clients
+    state: directory
+    mode: 0700
+  tags: [wireguard]
+
+- name: Create WireGuard clients local directory
+  file:
+    path: clients
+    state: directory
+    mode: 0700
+  become: false
+  delegate_to: localhost
+  tags: [wireguard]
+
+- name: Clients configs generation
+  include_tasks: client_generation.yml
+  loop: "{{ range(1, clients_count + 1) | list }}"
+  tags: [wireguard]
+
+- name: Find new generated client configs
+  ansible.builtin.find:
+    paths: /etc/wireguard/clients
+    recurse: no
+  register: files_to_copy
+  tags: [wireguard]
+
+- name: Fetch new clients configs to localhost
+  ansible.builtin.fetch:
+    src: "{{ item }}"
+    dest: clients
+  with_items: "{{ files_to_copy.files | map(attribute='path') | list }}"
+  tags: [wireguard]
+
+- name: Start and enable WireGuard service
+  service:
+    name: "wg-quick@{{ wireguard_interface }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  tags: [wireguard]

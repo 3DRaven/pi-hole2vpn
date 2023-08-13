@@ -1,0 +1,30 @@
+*filter
+:INPUT DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+:FORWARD DROP [0:0]
+
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+-A INPUT -i {{ default_external_interface }} -p tcp -m tcp ! --dport {{ ssh_port }} -j DROP
+-A INPUT -i {{ default_external_interface }} -p udp -m udp ! --dport {{ wireguard_listen_port }} -j DROP
+-A INPUT -i {{ default_external_interface }} -p tcp -m tcp --dport {{ ssh_port }} -m recent --update --seconds 60 --hitcount 6 --name SSH --mask 255.255.255.255 --rsource -j DROP
+-A INPUT -i {{ default_external_interface }} -p tcp -m tcp --dport {{ ssh_port }} -m recent --set --name SSH --mask 255.255.255.255 --rsource -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -i {{ default_external_interface }} -p udp -m udp --dport {{ wireguard_listen_port }} -j ACCEPT
+-A INPUT -i wg0 -j ACCEPT
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -i wg0 -j ACCEPT
+
+COMMIT
+
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+-A PREROUTING -i {{ default_external_interface }} -p udp -m multiport --dports 123,1194 -j REDIRECT --to-ports {{ wireguard_listen_port }}
+-A POSTROUTING -o {{ default_external_interface }} -j MASQUERADE
+
+COMMIT

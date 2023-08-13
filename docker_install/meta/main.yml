@@ -1,0 +1,14 @@
+galaxy_info:
+  author: 3DRaven
+  description: Install Docker, Docker compose
+  company: GNU
+  issue_tracker_url: https://github.com/3DRaven/pi-hole2vpn
+  license: GPL-3.0-only
+  min_ansible_version: "2.1"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - "jammy"
+
+  galaxy_tags: []
+dependencies: []
