@@ -5,7 +5,7 @@
 1. I found only pre-built droplets on DigitalOcean and a lot of instructions about setting up Pi-hole and WireGuard, but I do not want to configure
     everything each time with so many settings. Ansible is an easy method to write some "setup notes" one time, and DigitalOcean has traffic limits
     on droplets.
-2. When I use ad-blocker DNS, my phone stays cool and works for a full day (now it works 26 hours without charging) :) It is truly the best method to increase battery lifetime.
+2. When I use ad-blocker DNS, my phone stays cool and works for a full day (now it works 24 hours without charging, i finally measured it) :) It is truly the best method to increase battery lifetime.
 3. I dislike spyware.
 
 Look at screenshot. 80% requests it is spyware!
