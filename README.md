@@ -9,7 +9,7 @@ droplets.
 3. I do not like spyware.
 
 Look at screenshot. 80% requests it is spyware!
-![DNS in use](https://github.com/3DRaven/pi-hole2vpn/blob/master/images/Pi-hole-on-phone.png)
+<img src="https://github.com/3DRaven/pi-hole2vpn/blob/master/images/Pi-hole-on-phone.png" width="150" height="280">
 
 ## How to use
 
