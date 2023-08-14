@@ -1,4 +1,16 @@
 # pi-hole2vpn
+
+## Why
+
+1. I found only prebuilded droplets on DigitalOcean and lot of instructions about setup Pi-hole and WireGuard, but I do not want to do
+every time so lot of settings. Ansible it is easy method to write some "notes about setup" one time and DigitalOcean has limit traffic on
+droplets.
+2. When I use ad block DNS my phone is cold and work a full day :) It is really best method to increase baterry life time.
+3. I do not like spyware.
+
+Look at screenshot. 80% requests it is spyware!
+![DNS in use](https://github.com/3DRaven/pi-hole2vpn/blob/master/images/Pi-hole-on-phone.png)
+
 ## How to use
 
 Prerequirements:
@@ -67,7 +79,6 @@ Command to delete connection:
 ```bash
 nmcli connection delete client_4
 ```
-
 ## Troubleshooting
 
 1. If you have problems with freezes tasks try to comment `inventory->ssh_connection` options. It is slower but may resolve some problems.
