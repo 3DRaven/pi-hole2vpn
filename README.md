@@ -2,11 +2,11 @@
 
 ## Why
 
-1. I found only prebuilded droplets on DigitalOcean and lot of instructions about setup Pi-hole and WireGuard, but I do not want to do
-every time so lot of settings. Ansible it is easy method to write some "notes about setup" one time and DigitalOcean has limit traffic on
-droplets.
-2. When I use ad block DNS my phone is cold and work a full day :) It is really best method to increase baterry life time.
-3. I do not like spyware.
+1. I found only pre-built droplets on DigitalOcean and a lot of instructions about setting up Pi-hole and WireGuard, but I do not want to configure
+    everything each time with so many settings. Ansible is an easy method to write some "setup notes" one time, and DigitalOcean has traffic limits
+    on droplets.
+2. When I use ad-blocker DNS, my phone stays cool and works for a full day :) It is truly the best method to increase battery lifetime.
+3. I dislike spyware.
 
 Look at screenshot. 80% requests it is spyware!
 <p align="center">
