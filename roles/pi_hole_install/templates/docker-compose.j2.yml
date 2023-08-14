@@ -7,6 +7,8 @@ services:
     image: pihole/pihole:latest
     # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
     # network_mode: host
+    networks:
+      pihole_network:
     ports:
       - "{{ vpn_net }}.1:53:53/tcp"
       - "{{ vpn_net }}.1:53:53/udp"
@@ -27,3 +29,7 @@ services:
     # cap_add:
     # - NET_ADMIN # Required if you are using Pi-hole as your DHCP server, else not needed
     restart: unless-stopped
+networks:
+  pihole_network:
+    driver_opts:
+      com.docker.network.bridge.name: br-pihole

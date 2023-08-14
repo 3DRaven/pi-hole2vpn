@@ -39,7 +39,7 @@
 
 - name: Set DNS server especially for docker daemon (because we will remove systemd resolved from localhost interface)
   template:
-    src: daemon.j2.json
+    src: daemon.json.j2
     dest: /etc/docker/daemon.json
     mode: 0600
   tags: [docker_install]

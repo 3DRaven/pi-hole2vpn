@@ -1,17 +1,5 @@
 ---
 # tasks file for pi_hole_install
-- name: Include common variables
-  include_vars: common_vars.yml
-  tags: [pi_hole_install]
-  
-- name: Install required system packages
-  apt:
-    pkg:
-      - sqlite3
-    state: present
-    update_cache: true
-  tags: [pi_hole_install]
-
 - name: Create docker compose configuration directory
   file:
     path: /etc/docker/compose/pi-hole
@@ -100,3 +88,12 @@
   ansible.builtin.wait_for:
     port: 53
     host: "{{ vpn_net }}.1"
+
+# - name: Add pi-hole as first system DNS
+#   lineinfile:
+#     path: /etc/resolv.conf
+#     state: present
+#     firstmatch: yes
+#     insertbefore: '^nameserver.*' 
+#     line: "nameserver {{ vpn_net }}.1"
+#   tags: [pi_hole_install]

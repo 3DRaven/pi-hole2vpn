@@ -1,7 +1,3 @@
-- name: Include common variables
-  include_vars: common_vars.yml
-  tags: [user_init]
-
 - name: Create user '{{ user_to_add }}'
   user:
     name: "{{ user_to_add }}"

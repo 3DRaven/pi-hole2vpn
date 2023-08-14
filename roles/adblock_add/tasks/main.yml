@@ -1,5 +1,13 @@
 ---
 # tasks file for adblock_add
+- name: Install required system packages
+  apt:
+    pkg:
+      - sqlite3
+    state: present
+    update_cache: true
+  tags: [adblock_add]
+
 - name: Import adblock lists to pihole gravity.db
   command: sqlite3 /etc/docker/compose/pi-hole/etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('{{ item }}', 1, 'comment');"
   register: insert_result

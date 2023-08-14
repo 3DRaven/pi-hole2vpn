@@ -1,17 +1,14 @@
 ---
 # tasks file for vpn_installation
-- name: Include common variables
-  include_vars: common_vars.yml
-  tags: [wireguard]
-
 - name: Install WireGuard packages
   apt:
     name:
       - wireguard-tools
       - wireguard
       - qrencode
-      # - net-tools
+      - zram-config
       - iptables-persistent
+      - aptitude
       - mc
     state: present
     update_cache: true
@@ -130,6 +127,15 @@
 - name: Start and enable WireGuard service
   service:
     name: "wg-quick@{{ wireguard_interface }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  tags: [wireguard]
+
+
+- name: Start and enable zram service
+  service:
+    name: "zram-config"
     state: started
     enabled: true
     daemon_reload: true

@@ -12,9 +12,9 @@
 -A INPUT -i {{ default_external_interface }} -p tcp -m tcp --dport {{ ssh_port }} -m recent --set --name SSH --mask 255.255.255.255 --rsource -j ACCEPT
 -A INPUT -i lo -j ACCEPT
 -A INPUT -i {{ default_external_interface }} -p udp -m udp --dport {{ wireguard_listen_port }} -j ACCEPT
--A INPUT -i wg0 -j ACCEPT
+-A INPUT -i {{ wireguard_interface }} -j ACCEPT
 -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
--A FORWARD -i wg0 -j ACCEPT
+-A FORWARD -i {{ wireguard_interface }} -j ACCEPT
 
 COMMIT
 
@@ -23,8 +23,11 @@ COMMIT
 :INPUT ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
-
--A PREROUTING -i {{ default_external_interface }} -p udp -m multiport --dports 123,1194 -j REDIRECT --to-ports {{ wireguard_listen_port }}
+# If wireguard_listen_port blocked may be used fallback_wireguard_listen_ports
+-A PREROUTING -i {{ default_external_interface }} -p udp -m multiport --dports {{ fallback_wireguard_listen_ports }} -j REDIRECT --to-ports {{ wireguard_listen_port }}
 -A POSTROUTING -o {{ default_external_interface }} -j MASQUERADE
+# all DNS traffic will be sent to pi-hole DNS even if somebody try to have direst request to another DNS server
+-A PREROUTING ! -i br-pihole -p udp -m udp --dport 53 -j DNAT --to-destination {{ vpn_net }}.1:53
+-A PREROUTING ! -i br-pihole -p tcp -m tcp --dport 53 -j DNAT --to-destination {{ vpn_net }}.1:53
 
 COMMIT

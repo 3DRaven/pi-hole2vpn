@@ -7,6 +7,8 @@ ssh_port: 22 #remote host ssh port
 clients_count: 10 #how many client configurations to generate
 wireguard_interface: wg0 #name of vpn interface and config file too
 wireguard_listen_port: 51820 #port for listening for vpn
+fallback_wireguard_listen_ports: 123,1194 # if wireguard_listen_port blocked we can use this ports
 default_external_interface: ens5 #external interface on your VPS (on Amazon EC2 it is ens5, or may be eth0)
 public_server_addr: 183.eu-north-1.compute.amazonaws.com #DNS name or IP addr of remote server
-default_user: ubuntu
+default_user: ubuntu #default unsecure user on Ubuntu
+default_docker_dns_list: ["9.9.9.9", "8.8.8.8"] #used by docker daemon on remote host
