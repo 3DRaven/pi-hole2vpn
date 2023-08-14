@@ -75,7 +75,7 @@ at next runs after first success run it will be
 
 ### Ubuntu
 
-Command ro install wireguard
+Command to install wireguard
 ```bash
 sudo apt-get install wireguard
 ```
