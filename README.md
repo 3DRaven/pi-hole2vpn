@@ -12,6 +12,7 @@ Look at screenshot. 80% requests it is spyware!
 <p align="center">
   <img src="https://github.com/3DRaven/pi-hole2vpn/blob/master/images/Pi-hole-on-phone.png" width="150" height="280">
 </p>
+
 ## How to use
 
 Prerequirements:
