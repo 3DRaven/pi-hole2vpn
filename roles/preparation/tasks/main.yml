@@ -1,0 +1,209 @@
+---
+# tasks file for preparation
+- name: Install zram package
+  apt:
+    name:
+      - zram-config
+    state: present
+    update_cache: true
+  when: install_zram == true
+  tags: [preparation]
+
+- name: Start and enable zram service
+  service:
+    name: "zram-config"
+    state: started
+    enabled: true
+    daemon_reload: true
+  when: install_zram == true
+  tags: [preparation]
+
+- name: Upgrade packages
+  apt:
+    upgrade: yes
+    update_cache: true
+  tags: [preparation]
+
+- name: Install packages
+  apt:
+    name:
+      - iptables-persistent
+      - aptitude
+      - mc
+    state: present
+  tags: [preparation]
+
+# - name: Allow tracing UDP packets (debug DNS)
+#   iptables:
+#     table: raw
+#     chain: PREROUTING
+#     protocol: udp
+#     state: present
+#     jump: TRACE
+#   tags: [preparation]
+
+# - name: Allow tracing UDP packets (debug DNS)
+#   iptables:
+#     table: raw
+#     chain: OUTPUT
+#     protocol: udp
+#     state: present
+#     jump: TRACE
+#   tags: [preparation]
+
+- name: Allow INPUT established connections
+  iptables:
+    table: filter
+    chain: INPUT
+    state: present
+    match: conntrack
+    ctstate: ESTABLISHED,RELATED
+    jump: ACCEPT
+  tags: [preparation]
+
+- name: Allow OUTPUT established connections
+  iptables:
+    table: filter
+    chain: OUTPUT
+    state: present
+    match: conntrack
+    ctstate: ESTABLISHED,RELATED
+    jump: ACCEPT
+  tags: [preparation]
+
+- name: Add iptables rule to allow incoming SSH connections
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ ssh_port }}"
+    jump: ACCEPT
+  
+- name: Add iptables rule to DROP not SSH TCP traffic on external interface
+  iptables:
+    table: filter
+    chain: INPUT
+    in_interface: "{{ ansible_default_ipv4.interface }}"
+    protocol: tcp
+    state: present
+    match: tcp
+    destination_port: "!{{ ssh_port }}"
+    jump: DROP
+  tags: [preparation]
+
+- name: Allow loopback interface
+  iptables:
+    table: filter
+    chain: INPUT
+    in_interface: lo
+    jump: ACCEPT
+  tags: [preparation]
+
+- name: Allow loopback interface
+  iptables:
+    table: filter
+    chain: OUTPUT
+    out_interface: lo
+    jump: ACCEPT
+  tags: [preparation]
+
+- name: Allow RELATED and ESTABLISHED connections in FORWARD chain
+  iptables:
+    table: filter
+    chain: FORWARD
+    match: conntrack
+    ctstate: RELATED,ESTABLISHED
+    jump: ACCEPT
+  tags: [preparation]
+
+- name: Add REDIRECT rule for WireGuard fallback ports. If wireguard_listen_port blocked may be used fallback_wireguard_listen_ports
+  iptables:
+    table: nat
+    chain: PREROUTING
+    in_interface: "{{ ansible_default_ipv4.interface }}"
+    protocol: udp
+    state: present
+    destination_ports: "{{ fallback_wireguard_listen_ports }}"
+    jump: REDIRECT
+    to_ports: "{{ vpn_listen_port_base }}0"
+  tags: [preparation]
+
+- name: Add MASQUERADE rule for outbound traffic
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    out_interface: "{{ ansible_default_ipv4.interface }}"
+    jump: MASQUERADE
+  tags: [preparation]
+
+- name: Enable IPv4 forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: true
+    sysctl_set: true
+  tags: [preparation]
+
+- name: Disable IPv6
+  sysctl:
+    name: net.ipv6.conf.all.disable_ipv6
+    value: true
+    sysctl_set: true
+  tags: [preparation]
+
+- name: Disable IPv6
+  sysctl:
+    name: net.ipv6.conf.default.disable_ipv6
+    value: true
+    sysctl_set: true
+  tags: [preparation]
+
+- name: Set up NAT table PREROUTING chain default policy to ACCEPT
+  iptables:
+    table: nat
+    chain: PREROUTING
+    policy: ACCEPT
+  tags: [preparation]
+
+- name: Set up NAT table INPUT chain default policy to ACCEPT
+  iptables:
+    table: nat
+    chain: INPUT
+    policy: ACCEPT
+  tags: [preparation]
+
+- name: Set up NAT table OUTPUT chain default policy to ACCEPT
+  iptables:
+    table: nat
+    chain: OUTPUT
+    policy: ACCEPT
+  tags: [preparation]
+
+- name: Set up NAT table POSTROUTING chain default policy to ACCEPT
+  iptables:
+    table: nat
+    chain: POSTROUTING
+    policy: ACCEPT
+  tags: [preparation]
+
+- name: Set up FILTER table INPUT chain default policy to DROP
+  iptables:
+    table: filter
+    chain: INPUT
+    state: present
+    policy: DROP
+  tags: [preparation]
+
+- name: Set up FILTER table FORWARD chain default policy to DROP
+  iptables:
+    table: filter
+    chain: FORWARD
+    state: present
+    policy: DROP
+  tags: [preparation]
+
+- name: Set up FILTER table OUTPUT chain default policy to ACCEPT
+  iptables:
+    table: filter
+    chain: OUTPUT
+    state: present
+    policy: ACCEPT
+  tags: [preparation]

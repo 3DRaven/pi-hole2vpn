@@ -1,2 +1,3 @@
 ---
 # defaults file for docker_install
+default_docker_dns_list: ["9.9.9.9", "8.8.8.8"] #used by docker daemon on remote host

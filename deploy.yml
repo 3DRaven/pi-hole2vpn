@@ -2,6 +2,12 @@
 - hosts: vpn
   become: true
   roles:
+    - preparation
+  tags: [preparation]
+
+- hosts: vpn
+  become: true
+  roles:
     - user_creation
   tags: [user_cration]
 
@@ -40,3 +46,9 @@
   roles:
     - disable_ubuntu_user
   tags: [disable_ubuntu_user]
+
+- hosts: vpn
+  become: true
+  roles:
+    - postinstall
+  tags: [postinstall]

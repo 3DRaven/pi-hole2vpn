@@ -1,2 +1,3 @@
 ---
 # defaults file for set_sudo_pwd
+default_user: ubuntu #default unsecure user on Ubuntu

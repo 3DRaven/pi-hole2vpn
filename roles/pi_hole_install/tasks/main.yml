@@ -1,5 +1,29 @@
 ---
 # tasks file for pi_hole_install
+- name: Install Dnsmasq packages
+  apt:
+    name:
+      - dnsmasq
+      - ipset
+    state: present
+    update_cache: true
+  tags: [pi_hole_install]
+
+- name: Backup old Dnsmasq config
+  copy: 
+    remote_src: True 
+    src: /etc/dnsmasq.conf 
+    dest: /etc/dnsmasq.conf.bak
+    force: no #backup only system wide file
+  tags: [pi_hole_install]
+
+- name: Create Dnsmasq config for host frontend DNS
+  template:
+    src: dnsmasq.j2.conf
+    dest: /etc/dnsmasq.conf
+    mode: 0600
+  tags: [pi_hole_install]
+
 - name: Create docker compose configuration directory
   file:
     path: /etc/docker/compose/pi-hole
@@ -10,16 +34,9 @@
 
 - name: Create docker-compose config for pi-hole
   template:
-    src: docker-compose.j2.yml
+    src: docker-compose.yml.j2
     dest: /etc/docker/compose/pi-hole/docker-compose.yml
     mode: 0600
-  tags: [pi_hole_install]
-
-- name: Replace DNSStubListener line in resolved.conf because systemd-resolved listen on 53 port (https://github.com/pi-hole/docker-pi-hole/tree/master)
-  lineinfile:
-    path: /etc/systemd/resolved.conf
-    regexp: '^#DNSStubListener=yes'
-    line: 'DNSStubListener=no'
   tags: [pi_hole_install]
 
 # - name: Set local default DNS for preventing future errors 
@@ -28,6 +45,13 @@
 #     regexp: '^#DNS='
 #     line: "DNS={{ default_system_dns }}"
 #   tags: [pi_hole_install]
+
+- name: Replace DNSStubListener line in resolved.conf because systemd-resolved listen on 53 port (https://github.com/pi-hole/docker-pi-hole/tree/master)
+  lineinfile:
+    path: /etc/systemd/resolved.conf
+    regexp: '^#DNSStubListener=yes'
+    line: 'DNSStubListener=no'
+  tags: [pi_hole_install]
 
 - name: Remove default resolve.conf file
   file:
@@ -84,16 +108,139 @@
     # debug: true
   tags: [pi_hole_install]
 
-- name: Waiting pihole full up
+- name: Waiting pihole full up for front DNS server
   ansible.builtin.wait_for:
     port: 53
-    host: "{{ vpn_net }}.1"
+    host: "127.0.0.1"
+  tags: [pi_hole_install]
 
-# - name: Add pi-hole as first system DNS
+- name: ACCEPT local DNS servers requests - UDP
+  iptables:
+    table: filter
+    chain: OUTPUT
+    protocol: udp
+    destination_port: 53
+    out_interface: lo
+    jump: ACCEPT
+  tags: [pi_hole_install]
+  
+- name: ACCEPT local DNS servers requests - TCP
+  iptables:
+    table: filter
+    chain: OUTPUT
+    protocol: tcp
+    destination_port: 53
+    out_interface: lo
+    jump: ACCEPT
+  tags: [pi_hole_install]
+  
+- name: ACCEPT DNS requests on br-pihole - TCP
+  iptables:
+    table: filter
+    chain: OUTPUT
+    protocol: tcp
+    destination_port: 53
+    out_interface: br-pihole
+    jump: ACCEPT
+  tags: [pi_hole_install]
+  
+- name: ACCEPT DNS requests on br-pihole - UDP
+  iptables:
+    table: filter
+    chain: OUTPUT
+    protocol: udp
+    destination_port: 53
+    out_interface: br-pihole
+    jump: ACCEPT
+  tags: [pi_hole_install]
+  
+- name: Add DNAT redirect rule for DNS traffic by UDP for unknown p2p DNS requests
+  iptables:
+    table: nat
+    chain: PREROUTING
+    in_interface: "!br-pihole"
+    protocol: udp
+    state: present
+    match: udp
+    destination_port: 53
+    destination: "!{{ vpn_net_base ~ '.' ~ 0 }}.0/16"
+    jump: DNAT
+    to_destination: "{{ vpn_net_base ~ '.' ~ 0 }}.1:53"
+  tags: [pi_hole_install]
+
+- name: Add DNAT redirect rule for DNS traffic by TCP for unknown p2p DNS requests
+  iptables:
+    table: nat
+    chain: PREROUTING
+    in_interface: "!br-pihole"
+    protocol: tcp
+    state: present
+    match: tcp
+    destination_port: 53
+    destination: "!{{ vpn_net_base ~ '.' ~ 0 }}.0/16"
+    jump: DNAT
+    to_destination: "{{ vpn_net_base ~ '.' ~ 0 }}.1:53"
+  tags: [pi_hole_install]
+
+# - name: Add dnsmasq as first system DNS
 #   lineinfile:
 #     path: /etc/resolv.conf
 #     state: present
 #     firstmatch: yes
 #     insertbefore: '^nameserver.*' 
-#     line: "nameserver {{ vpn_net }}.1"
+#     line: "nameserver {{ vpn_net_base ~ '.' ~ vpn_number }}.1"
+#   loop: "{{ range(0, number_of_vpns) | list }}"
+#   loop_control:
+#     loop_var: vpn_number
 #   tags: [pi_hole_install]
+
+- name: Create ipset for pihole
+  command: ipset -exist create pihole hash:ip
+  tags: [pi_hole_install]
+
+- name: Start and enable host Dnsmasq service
+  service:
+    name: dnsmasq
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  tags: [pi_hole_install]
+
+- name: Check old logging TCP p2p new connections rule exists
+  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -p tcp -m tcp ! --dport 53 -m set ! --match-set pihole dst -m conntrack --ctstate NEW -j LOG --log-prefix "p2p: "'
+  register: checking_result
+  changed_when: false
+  failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  tags: [pi_hole_install]
+
+- name: Add logging TCP p2p new connections rule if not exists
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -p tcp -m tcp ! --dport 53  -m set ! --match-set pihole dst -m conntrack --ctstate NEW -j LOG --log-prefix "p2p: "'
+  changed_when: checking_result.rc == 1
+  when: checking_result.rc == 1
+  tags: [pi_hole_install]
+
+- name: Check old logging UDP p2p new connections rule exists
+  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -p udp -m udp ! --dport 53 -m set ! --match-set pihole dst -m conntrack --ctstate NEW -j LOG --log-prefix "p2p: "'
+  register: checking_result
+  changed_when: false
+  failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  tags: [pi_hole_install]
+
+- name: Add logging UDP p2p new connections rule if not exists
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -p udp -m udp ! --dport 53  -m set ! --match-set pihole dst -m conntrack --ctstate NEW -j LOG --log-prefix "p2p: "'
+  changed_when: checking_result.rc == 1 
+  when: checking_result.rc == 1
+  tags: [pi_hole_install]
+
+- name: Check old DROP OUT TCP p2p https connections rule exists
+  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports 123,137,443,5222,80,8009 -j DROP'
+  register: checking_result
+  changed_when: false
+  failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  tags: [pi_hole_install]
+
+- name: Add DROP OUT TCP p2p connections for ports [123,137,443,5222,80,8009] (DoH as example)
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports 123,137,443,5222,80,8009 -j DROP'
+  changed_when: checking_result.rc == 1
+  when: checking_result.rc == 1
+  tags: [pi_hole_install]

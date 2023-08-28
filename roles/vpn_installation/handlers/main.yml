@@ -1,7 +1,2 @@
 ---
 # handlers file for vpn_installation
-# Reloads config without closing current peer sessions
-- name: reload wireguard config
-  shell: wg syncconf wg0 <(wg-quick strip wg0)
-  args:
-    executable: /bin/bash

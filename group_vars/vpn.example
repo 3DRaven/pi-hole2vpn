@@ -1,0 +1,11 @@
+# need to rename file vpn.example to vpn
+
+ssh_port: 22 #remote host ssh port
+vpn_net_base: 10.156 #start of network address
+user_to_add: user #user to add to remote host for ssh login instead of root
+user_password: password #password for added user
+pi_hole_admin_password: password #password for pihole admin panel
+number_of_vpns: 1 #playbook can generate multiple VPN networks (it is not necessary)
+fallback_wireguard_listen_ports: 123,1194 # if wireguard_listen_port blocked we can use this ports
+vpn_listen_port_base: 5182 #real port for VPN as '5182'~'vpn_number'= 51820,51821,51822...
+install_zram: false #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example) it is good method to upgrade your VPS

@@ -1,2 +1,3 @@
 ---
 # defaults file for pi_hole_install
+default_system_dns: 9.9.9.9 #remote host DNS for resolving addresses witout pihole

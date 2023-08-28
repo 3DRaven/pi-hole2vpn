@@ -1,1 +1,4 @@
 local/
+clients/
+group_vars/vpn
+inventory

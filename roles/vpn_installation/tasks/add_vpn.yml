@@ -1,0 +1,91 @@
+- name: Set interface name fact for VPN {{ vpn_number }} 
+  set_fact:
+    interface_name: "{{ 'wg' ~ vpn_number }}"
+  tags: [add_vpn,vpn_installation]
+
+- name: Set port number fact for VPN {{ vpn_number }} 
+  set_fact:
+    vpn_listen_port: "{{ vpn_listen_port_base ~ vpn_number }}"
+  tags: [add_vpn,vpn_installation]
+
+- name: Generate WireGuard server private key for VPN {{ vpn_number }}
+  ansible.builtin.command: "wg genkey"
+  register: wireguard_server_private_key
+  changed_when: false
+  tags: [add_vpn,vpn_installation]
+
+- name: Set facts with server private key for VPN {{ vpn_number }} 
+  set_fact:
+    server_private_keys: "{{ server_private_keys | default({}) | combine ({ vpn_number : wireguard_server_private_key.stdout }) }}"
+  tags: [add_vpn,vpn_installation]
+
+- name: Generate WireGuard server public key for VPN {{ vpn_number }}
+  ansible.builtin.command: "wg pubkey"
+  args:
+    stdin: "{{ server_private_keys[vpn_number] }}"
+  register: wireguard_server_public_key
+  changed_when: false
+  tags: [add_vpn,vpn_installation]
+
+- name: Set facts with server public key for VPN {{ vpn_number }} 
+  set_fact:
+    server_public_keys: "{{ server_public_keys | default({}) | combine ({ vpn_number : wireguard_server_public_key.stdout }) }}"
+  tags: [add_vpn,vpn_installation]
+
+# * 2 because we need two types of configs
+- name: Clients keys generation for VPN {{ vpn_number }}
+  include_tasks: client_keys_generation.yml
+  loop: "{{ range(1, clients_count * 2 + 1) | list }}"
+  loop_control:
+    loop_var: client_key_number
+  tags: [add_vpn,vpn_installation]
+
+- name: Create interface configuration for VPN {{ vpn_number }}
+  template:
+    src: wireguard_interface.j2.conf
+    dest: "/etc/wireguard/{{ interface_name }}.conf"
+    mode: 0600
+  tags: [add_vpn,vpn_installation]
+
+- name: Clients configs generation for VPN {{ vpn_number }} with full VPN
+  include_tasks: full_vpn_client_generation.yml
+  loop: "{{ range(1, clients_count + 1) | list }}"
+  loop_control:
+    loop_var: client_config_number
+  tags: [add_vpn,vpn_installation]
+
+- name: Clients configs generation for VPN {{ vpn_number }} with DNS only
+  include_tasks: dns_vpn_client_generation.yml
+  loop: "{{ range(clients_count + 1, clients_count * 2 + 1) | list }}"
+  loop_control:
+    loop_var: client_config_number
+  tags: [add_vpn,vpn_installation]
+
+- name: Start and enable WireGuard service for VPN {{ vpn_number }}
+  service:
+    name: "wg-quick@{{ interface_name }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  tags: [add_vpn,vpn_installation]
+
+- name: Reloads  wireguard config without closing current peer sessions for VPN {{ vpn_number }}
+  shell: "wg syncconf {{ interface_name }} <(wg-quick strip {{ interface_name }})"
+  args:
+    executable: /bin/bash
+
+- name: Allow traffic on WireGuard interface for VPN {{ vpn_number }}
+  iptables:
+    table: filter
+    chain: INPUT
+    in_interface: "{{ interface_name }}"
+    jump: ACCEPT
+  tags: [add_vpn,vpn_installation]
+
+- name: Allow traffic from WireGuard interface in FORWARD chain for VPN {{ vpn_number }}
+  iptables:
+    table: filter
+    chain: FORWARD
+    in_interface: "{{ interface_name }}"
+    jump: ACCEPT
+  tags: [add_vpn,vpn_installation]

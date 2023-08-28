@@ -6,95 +6,30 @@
       - wireguard-tools
       - wireguard
       - qrencode
-      - zram-config
-      - iptables-persistent
-      - aptitude
-      - mc
     state: present
     update_cache: true
-  tags: [wireguard]
+  tags: [vpn_installation]
 
-- name: Create iptables v4 rules file
-  template:
-    src: iptables.v4.j2.rules
-    dest: /etc/iptables/rules.v4
-    mode: 0700
-  tags: [wireguard]
-
-- name: Restore iptables state from the file
-  community.general.iptables_state:
-    state: restored
-    path: /etc/iptables/rules.v4
-  async: "{{ ansible_timeout }}"
-  poll: 0
-  tags: [wireguard]
-
-- name: Enable IPv4 forwarding
-  sysctl:
-    name: net.ipv4.ip_forward
-    value: true
-    sysctl_set: true
-  tags: [wireguard]
-
-- name: Find old generated client configs
-  ansible.builtin.find:
-    paths: /etc/wireguard/clients
-    recurse: no
-  register: old_files_to_copy
-  tags: [wireguard]
-
-- name: Remove old configs
+- name: Remove WireGuard clients remote directory
   file:
-    path: "{{ item }}"
+    path: /etc/wireguard/clients
     state: absent
-  with_items: "{{ old_files_to_copy.files | map(attribute='path') | list }}"
-  tags: [wireguard]
+  tags: [add_vpn,vpn_installation]
 
-- name: Generate WireGuard server private key
-  ansible.builtin.command: "wg genkey"
-  register: wireguard_server_private_key
-  changed_when: false
-  tags: [wireguard]
+- name: Remove WireGuard clients local directory
+  file:
+    path: clients
+    state: absent
+  become: false
+  delegate_to: localhost
+  tags: [add_vpn,vpn_installation]
 
-- name: Wireguard server private key
-  ansible.builtin.debug:
-    var: wireguard_server_private_key
-    verbosity: 3
-  tags: [wireguard]
-
-- name: Generate WireGuard server public key
-  ansible.builtin.command: "wg pubkey"
-  args:
-    stdin: "{{ wireguard_server_private_key.stdout }}"
-  register: wireguard_server_public_key
-  changed_when: false
-  tags: [wireguard]
-
-- name: Wireguard server public key
-  debug:
-    var: wireguard_server_public_key
-    verbosity: 3
-  tags: [wireguard]
-
-- name: Clients keys generation
-  include_tasks: client_keys_generation.yml
-  loop: "{{ range(1, clients_count + 1) | list }}"
-  tags: [wireguard]
-
-- name: Create interface configuration
-  template:
-    src: wireguard_interface.j2.conf
-    dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
-    mode: 0600
-  notify: reload wireguard config
-  tags: [wireguard]
-  
 - name: Create WireGuard clients remote directory
   file:
     path: /etc/wireguard/clients
     state: directory
     mode: 0700
-  tags: [wireguard]
+  tags: [add_vpn,vpn_installation]
 
 - name: Create WireGuard clients local directory
   file:
@@ -103,40 +38,50 @@
     mode: 0700
   become: false
   delegate_to: localhost
-  tags: [wireguard]
+  tags: [add_vpn,vpn_installation]
 
-- name: Clients configs generation
-  include_tasks: client_generation.yml
-  loop: "{{ range(1, clients_count + 1) | list }}"
-  tags: [wireguard]
+- name: Generate VPN interface
+  include_tasks: add_vpn.yml
+  loop: "{{ range(0, number_of_vpns) | list }}"
+  loop_control:
+    loop_var: vpn_number
+  tags: [vpn_installation]
 
-- name: Find new generated client configs
+- name: Allow WireGuard traffic on specified ports for multiple VPNs
+  iptables:
+    table: filter
+    chain: INPUT
+    in_interface: "{{ ansible_default_ipv4.interface }}"
+    protocol: udp
+    state: present
+    destination_ports: "{{ vpn_listen_port_base}}0:{{ vpn_listen_port_base}}{{ number_of_vpns - 1 }}"
+    jump: ACCEPT
+  when: number_of_vpns > 1
+  tags: [vpn_installation]
+
+- name: Allow WireGuard traffic on specified port for single VPN
+  iptables:
+    table: filter
+    chain: INPUT
+    in_interface: "{{ ansible_default_ipv4.interface }}"
+    protocol: udp
+    state: present
+    destination_port: "{{ vpn_listen_port_base}}0"
+    jump: ACCEPT
+  when: number_of_vpns == 1
+  tags: [vpn_installation]
+
+- name: Find new generated client configs for VPNs
   ansible.builtin.find:
     paths: /etc/wireguard/clients
-    recurse: no
+    recurse: yes
   register: files_to_copy
-  tags: [wireguard]
+  tags: [vpn_installation]
 
-- name: Fetch new clients configs to localhost
+- name: Fetch new clients configs to localhost for VPNs
   ansible.builtin.fetch:
     src: "{{ item }}"
     dest: clients
+    mode: 644
   with_items: "{{ files_to_copy.files | map(attribute='path') | list }}"
-  tags: [wireguard]
-
-- name: Start and enable WireGuard service
-  service:
-    name: "wg-quick@{{ wireguard_interface }}"
-    state: started
-    enabled: true
-    daemon_reload: true
-  tags: [wireguard]
-
-
-- name: Start and enable zram service
-  service:
-    name: "zram-config"
-    state: started
-    enabled: true
-    daemon_reload: true
-  tags: [wireguard]
+  tags: [vpn_installation]

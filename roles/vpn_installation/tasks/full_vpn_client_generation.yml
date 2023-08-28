@@ -1,0 +1,21 @@
+---
+- name: Create WireGuard clients remote directory for configuration {{ client_config_number }} for full VPN {{ vpn_number }}
+  file:
+    path: "/etc/wireguard/clients/{{ interface_name }}/full"
+    state: directory
+    mode: 0700
+  tags: [full_vpn_client_generation,vpn_installation]
+
+- name: Create client configuration {{ client_config_number }} for VPN {{ vpn_number }}
+  template:
+    src: wireguard_full_client.j2.conf
+    dest: "/etc/wireguard/clients/{{ interface_name }}/full/client_{{ client_config_number }}.conf"
+    mode: 0600
+  tags: [full_vpn_client_generation,vpn_installation]
+
+- name: Generate QR code {{ client_config_number }} for VPN {{ vpn_number }}
+  ansible.builtin.shell: "set -o pipefail && cat /etc/wireguard/clients/{{ interface_name }}/full/client_{{ client_config_number }}.conf | qrencode -t utf8 -o /etc/wireguard/clients/{{ interface_name }}/full/client_{{ client_config_number }}.qr.txt"
+  args:
+    executable: /bin/bash
+  changed_when: true
+  tags: [full_vpn_client_generation,vpn_installation]

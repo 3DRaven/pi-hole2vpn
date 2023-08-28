@@ -1,58 +1,35 @@
 ---
-- name: Generate WireGuard client private key {{ item }}
+- name: Generate WireGuard client private key {{ client_key_number }} for VPN {{ vpn_number }} 
   ansible.builtin.command: "wg genkey"
   register: wireguard_client_private_key
   changed_when: false
-  tags: [wireguard]
+  tags: [client_keys_generation,vpn_installation]
 
-- name: Wireguard client private key {{ item }}
-  debug:
-    var: wireguard_client_private_key
-    verbosity: 3
-  tags: [wireguard]
-
-- name: Set facts with client private key variable name {{ item }}
+- name: Set facts with client private key {{ client_key_number }} for VPN {{ vpn_number }} 
   set_fact:
-    "wireguard_client_private_key_variable_name": "wireguard_client_private_key_{{ item }}"
-  tags: [wireguard]
+    client_private_keys: "{{ client_private_keys | default({}) | combine ({ 'vpn' ~ vpn_number ~ 'key' ~ client_key_number : wireguard_client_private_key.stdout }) }}"
+  tags: [client_keys_generation,vpn_installation]
 
-- name: Set facts with client private key {{ item }}
-  set_fact:
-    "{{ wireguard_client_private_key_variable_name }}": "{{ wireguard_client_private_key.stdout }}"
-  tags: [wireguard]
-
-- name: Generate WireGuard client public key {{ item }}
+- name: Generate WireGuard client public key {{ client_key_number }} for VPN {{ vpn_number }} 
   ansible.builtin.command: "wg pubkey"
   args:
-    stdin: "{{ vars[wireguard_client_private_key_variable_name] }}"
+    stdin: "{{ client_private_keys['vpn' ~ vpn_number ~ 'key' ~ client_key_number] }}"
   register: wireguard_client_public_key
   changed_when: false
-  tags: [wireguard]
+  tags: [client_keys_generation,vpn_installation]
 
-- name: Wireguard client public key {{ item }}
-  debug:
-    var: wireguard_client_public_key
-    verbosity: 3
-  tags: [wireguard]
-
-- name: Set facts with client public key {{ item }}
+- name: Set facts with client public key {{ client_key_number }} for VPN {{ vpn_number }} 
   set_fact:
-    "wireguard_client_public_key_{{ item }}": "{{ wireguard_client_public_key.stdout }}"
-  tags: [wireguard]
+    client_public_keys: "{{ client_public_keys | default({}) | combine ({ 'vpn' ~ vpn_number ~ 'key' ~ client_key_number : wireguard_client_public_key.stdout }) }}"
+  tags: [client_keys_generation,vpn_installation]
 
-- name: Generate WireGuard preshared key {{ item }}
+- name: Generate WireGuard preshared key {{ client_key_number }} for VPN {{ vpn_number }} 
   ansible.builtin.command: "wg genpsk"
-  register: wireguard_preshared_key
+  register: wireguard_client_preshared_key
   changed_when: false
-  tags: [wireguard]
+  tags: [client_keys_generation,vpn_installation]
 
-- name: Wireguard client preshared key {{ item }}
-  debug:
-    var: wireguard_preshared_key
-    verbosity: 3
-  tags: [wireguard]
-
-- name: Set facts with client preshared key {{ item }}
+- name: Set facts with client preshared key {{ client_key_number }} for VPN {{ vpn_number }} 
   set_fact:
-    "wireguard_preshared_key_{{ item }}": "{{ wireguard_preshared_key.stdout }}"
-  tags: [wireguard]
+    client_preshared_keys: "{{ client_preshared_keys | default({}) | combine ({ 'vpn' ~ vpn_number ~ 'key' ~ client_key_number : wireguard_client_preshared_key.stdout }) }}"
+  tags: [client_keys_generation,vpn_installation]

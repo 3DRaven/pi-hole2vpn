@@ -1,8 +1,4 @@
 ---
-- name: Gather facts
-  ansible.builtin.setup:
-  tags: [docker_install]
-
 - name: Add Docker GPG apt Key
   apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
@@ -18,7 +14,6 @@
 - name: Install required system packages
   apt:
     pkg:
-      - aptitude
       - apt-transport-https
       - ca-certificates
       - curl
@@ -55,8 +50,8 @@
   iptables:
     table: filter
     chain: DOCKER-USER
-    in_interface: "{{ default_external_interface }}"
-    source: "! {{ vpn_net }}.0/24"
+    in_interface: "{{ ansible_default_ipv4.interface }}"
+    source: "! {{ vpn_net_base }}.0.0/16"
     jump: DROP
 
 - name: Create containers directory
