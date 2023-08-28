@@ -206,6 +206,14 @@
     daemon_reload: true
   tags: [pi_hole_install]
 
+- name: Implicitly resolve some IP to allowing p2p for it
+  ansible.builtin.debug:
+    msg: "{{ lookup('community.general.dig', allowed_host_name)}}"
+  loop: "{{ allowed_p2p_hosts | list}}"
+  loop_control:
+    loop_var: allowed_host_name
+  tags: [pi_hole_install_t]
+
 - name: Check old logging TCP p2p new connections rule exists
   command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -p tcp -m tcp ! --dport 53 -m set ! --match-set pihole dst -m conntrack --ctstate NEW -j LOG --log-prefix "p2p: "'
   register: checking_result

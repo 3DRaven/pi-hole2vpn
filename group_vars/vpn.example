@@ -10,3 +10,4 @@ fallback_wireguard_listen_ports: 123,1194 # if wireguard_listen_port blocked we 
 vpn_listen_port_base: 5182 #real port for VPN as '5182'~'vpn_number'= 51820,51821,51822...
 install_zram: false #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example) it is good method to upgrade your VPS
 restricted_p2p_ports: [123,137,443,80,8009] #5222 it is telegram, do not restrict it
+allowed_p2p_hosts: [d.t-relay.moesdr.eu.org] # host names for allowing p2p traffic by resolvng it on install
