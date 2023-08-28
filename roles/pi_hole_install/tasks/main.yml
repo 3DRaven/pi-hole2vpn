@@ -233,14 +233,14 @@
   tags: [pi_hole_install]
 
 - name: Check old DROP OUT TCP p2p https connections rule exists
-  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports 123,137,443,5222,80,8009 -j DROP'
+  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_ports|join(",") }} -j DROP'
   register: checking_result
   changed_when: false
   failed_when: checking_result.rc != 0 and checking_result.rc != 1
   tags: [pi_hole_install]
 
-- name: Add DROP OUT TCP p2p connections for ports [123,137,443,5222,80,8009] (DoH as example)
-  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports 123,137,443,5222,80,8009 -j DROP'
+- name: Add DROP OUT TCP p2p connections for ports {{ restricted_p2p_ports|join(',') }} (DoH as example)
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_ports|join(",") }} -j DROP'
   changed_when: checking_result.rc == 1
   when: checking_result.rc == 1
   tags: [pi_hole_install]

@@ -74,8 +74,9 @@ linux kernel with zram module. As example https://liquorix.net/#install
     This configs will be placed to ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/dns
   b. All traffic over VPN. This in ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/full
 7. If default `group_vars/vpn->wireguard_listen_port` port is blocked all traffic from ports `group_vars/vpn->fallback_wireguard_listen_ports` will be redirected to `group_vars/vpn->wireguard_listen_port`
-8. All unknown p2p TCP traffic not recognized by Pi-Hole to ports [123,137,443,5222,80,8009] disabled and totaly all logged. 
-Some spyware apps use direct requests. After I found this hidden traffic, battery lifetime significantly increased.
+8. All unknown p2p TCP traffic not recognized by Pi-Hole to ports [123,137,443,80,8009] disabled and totaly all logged. 
+Some spyware apps use direct requests. After I found this hidden traffic, battery lifetime significantly increased. 
+Telegram use 5222,80,443 but 80,443 not only Telegram, so 80,443 were restricted and it works fine.
 ## Using VPN from phone:
 
 1. Install wireguard client to phone
