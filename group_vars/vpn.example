@@ -11,3 +11,5 @@ vpn_listen_port_base: 5182 #real port for VPN as '5182'~'vpn_number'= 51820,5182
 install_zram: false #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example) it is good method to upgrade your VPS
 restricted_p2p_ports: [123,137,443,80,8009] #5222 it is telegram, do not restrict it
 allowed_p2p_hosts: [d.t-relay.moesdr.eu.org] # host names for allowing p2p traffic by resolvng it on install
+restricted_p2p_tcp_ports: [123,443,80,8009,5228] #5222 it is telegram, do not restrict it
+restricted_p2p_udp_ports: [137]

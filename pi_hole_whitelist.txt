@@ -1,0 +1,5 @@
+mobile.pipe.aria.microsoft.com
+yt3.ggpht.com
+i.ytimg.com
+login.microsoftonline.com
+github.com

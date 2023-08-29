@@ -206,13 +206,34 @@
     daemon_reload: true
   tags: [pi_hole_install]
 
-- name: Implicitly resolve some IP to allowing p2p for it
-  ansible.builtin.debug:
-    msg: "{{ lookup('community.general.dig', allowed_host_name)}}"
-  loop: "{{ allowed_p2p_hosts | list}}"
+- name: Implicitly resolve IPs to grant p2p for it
+  set_fact:
+    ips: "{{ lookup('dig', item, '@'~vpn_net_base~'.0.1') }}"
+  with_lines: cat autoresolve.txt
+  register: grant_ips
+  tags: [pi_hole_install]
+
+- name: Construct grant IPs list
+  set_fact:  
+    grant_ip_list: "{{ (grant_ip_list | default([])) + (grant_ip_fact.ansible_facts.ips.split(',')) | list }}" 
+  loop: "{{ grant_ips.results | list }}"
   loop_control:
-    loop_var: allowed_host_name
-  tags: [pi_hole_install_t]
+    loop_var: grant_ip_fact
+  tags: [pi_hole_install]
+
+- name: Add resolved IPs to ipset
+  command: "ipset -exist add pihole {{ grant_ip }}"
+  loop: "{{ grant_ip_list | list}}"
+  loop_control:
+    loop_var: grant_ip
+  tags: [pi_hole_install]
+
+- name: Fill pihole whitelist
+  community.docker.docker_container_exec:
+    container: pihole
+    command: "pihole -w {{ item }}"
+  with_lines: cat pi_hole_whitelist.txt
+  tags: [pi_hole_install]
 
 - name: Check old logging TCP p2p new connections rule exists
   command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -p tcp -m tcp ! --dport 53 -m set ! --match-set pihole dst -m conntrack --ctstate NEW -j LOG --log-prefix "p2p: "'
@@ -240,15 +261,30 @@
   when: checking_result.rc == 1
   tags: [pi_hole_install]
 
-- name: Check old DROP OUT TCP p2p https connections rule exists
-  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_ports|join(",") }} -j DROP'
+- name: Check old DROP OUT TCP p2p connections rule exists
+  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_tcp_ports|join(",") }} -j DROP'
   register: checking_result
   changed_when: false
   failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  when: restricted_p2p_tcp_ports | length > 0
   tags: [pi_hole_install]
 
-- name: Add DROP OUT TCP p2p connections for ports {{ restricted_p2p_ports|join(',') }} (DoH as example)
-  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_ports|join(",") }} -j DROP'
+- name: Add DROP OUT TCP p2p connections for ports {{ restricted_p2p_tcp_ports|join(',') }} (DoH as example)
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_tcp_ports|join(",") }} -j DROP'
   changed_when: checking_result.rc == 1
-  when: checking_result.rc == 1
+  when: (checking_result.rc == 1) and (restricted_p2p_tcp_ports | length > 0)
+  tags: [pi_hole_install]
+
+- name: Check old DROP OUT UDP p2p connections rule exists
+  command: 'iptables -t mangle -C PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p udp -m multiport --dports {{ restricted_p2p_udp_ports|join(",") }} -j DROP'
+  register: checking_result
+  changed_when: false
+  failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  when: restricted_p2p_udp_ports | length > 0
+  tags: [pi_hole_install]
+
+- name: Add DROP OUT UDP p2p connections for ports {{ restricted_p2p_udp_ports|join(',') }}
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p udp -m multiport --dports {{ restricted_p2p_udp_ports|join(",") }} -j DROP'
+  changed_when: checking_result.rc == 1
+  when: (checking_result.rc == 1) and (restricted_p2p_udp_ports | length > 0)
   tags: [pi_hole_install]
