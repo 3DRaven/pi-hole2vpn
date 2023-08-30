@@ -13,3 +13,6 @@ restricted_p2p_ports: [123,137,443,80,8009] #5222 it is telegram, do not restric
 allowed_p2p_hosts: [d.t-relay.moesdr.eu.org] # host names for allowing p2p traffic by resolvng it on install
 restricted_p2p_tcp_ports: [123,443,80,8009,5228] #5222 it is telegram, do not restrict it
 restricted_p2p_udp_ports: [137]
+autogenerate_ssh_key: false #generate ssh keys automaticaly to secure access to remote host 
+#it is name of private key for autogeneration, or if you want to, will be used existing public key for registration with name `path_and_filename_of_private_ssh_key_on_localhost+.pub`
+path_and_filename_of_private_ssh_key_on_localhost: /home/{{ user_to_add }}/.ssh/id_rsa_vpn #you must have personal ssh keypair for remote access to VPN server by ssh (or `autogenerate_ssh_key: true`)

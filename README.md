@@ -33,6 +33,7 @@ sudo apt-get update
 sudo apt-get install ansible
 ```
 2. Edit `group_vars/vpn.example`. It is file with main settings. And rename it to `vpn`
+If you do not have ssh keys, you must set `group_vars/vpn->autogenerate_ssh_key: true`
 3. Edit `inventory.example` file to add IP of your remote hosts to install VPN+Pihole, in this file possible to set ssh access params.
 And rename it to `inventory`
 4. If need add some urls to `autoresolve.txt`. This urls will be resolved and IPs added to allowed for p2p connections
@@ -66,18 +67,21 @@ at next runs after first success run it will be
 
 ## State after playbook executed
 
-1. Docker is installed on the remote host.
-2. Pi-hole DNS is installed on the remote host. Added whitelist.
-3. All requests to port 53 inside the VPN will be redirected to the Pi-hole DNS, even if some spyware attempts to make a direct request to 8.8.8.8.
-4. Zram is installed if `install_zram: true`. It is a good method to expand VPS RAM on the remote host. But you must have 
+0. If `group_vars/vpn->autogenerate_ssh_key: true` on localhost will be generated ssh keypair to path `group_vars/vpn->path_and_filename_of_private_ssh_key_on_localhost`. Existing keys never be replaced.
+1. Default ubuntu user with name `ubuntu` on remote host will be disabled and registered user with name `group_vars/vpn->user_to_add`.
+For the user on remote host will be registered new generated public key or existing public key from path `group_vars/vpn->path_and_filename_of_private_ssh_key_on_localhost`+`.pub` 
+3. Docker is installed on the remote host.
+4. Pi-hole DNS is installed on the remote host. Added whitelist.
+5. All requests to port 53 inside the VPN will be redirected to the Pi-hole DNS, even if some spyware attempts to make a direct request to 8.8.8.8 or other.
+6. Zram is installed if `install_zram: true`. It is a good method to expand VPS RAM on the remote host. But you must have 
 linux kernel with zram module. As example https://liquorix.net/#install
-5. WireGuard is installed on the remote host.
-6. Client configuration files are generated on the localhost. Will be generate two type of files: 
-  a. Only DNS requests VPN. So, only DNS requests from client will be send to VPN, other traffic will be direct.
+7. WireGuard is installed on the remote host.
+8. Client configuration files are generated on the localhost. Will be generate two type of files: 
+  * (not tested) Only DNS requests VPN. So, only DNS requests from client will be send to VPN, other traffic will be direct.
     This configs will be placed to ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/dns
-  b. All traffic over VPN. This in ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/full
-7. (not tested) If default `group_vars/vpn->wireguard_listen_port` port is blocked all traffic from ports `group_vars/vpn->fallback_wireguard_listen_ports` will be redirected to `group_vars/vpn->wireguard_listen_port`
-8. All unknown p2p TCP traffic not recognized by Pi-Hole to tcp ports [123,443,80,8009] and udp ports [137] disabled and totaly all logged. 
+  * All traffic over VPN. This in ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/full
+9. (not tested) If default `group_vars/vpn->wireguard_listen_port` port is blocked all traffic from ports `group_vars/vpn->fallback_wireguard_listen_ports` will be redirected to `group_vars/vpn->wireguard_listen_port`
+10. All unknown p2p TCP traffic not recognized by Pi-Hole to tcp ports [123,443,80,8009] and udp ports [137] disabled and totaly all logged. 
 Some spyware apps use direct requests. After I found this hidden traffic, battery lifetime significantly increased. 
 Telegram use 5222,80,443 but 80,443 not only Telegram, so 80,443 were restricted and it works fine.
 ## Using VPN from phone:

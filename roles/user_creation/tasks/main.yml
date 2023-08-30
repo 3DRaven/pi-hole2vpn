@@ -1,3 +1,11 @@
+- name: Install OpenSSH client package
+  apt:
+    name:
+      - openssh-client
+    state: present
+    update_cache: true
+  tags: [user_init]
+
 - name: Create user '{{ user_to_add }}'
   user:
     name: "{{ user_to_add }}"
@@ -9,9 +17,18 @@
     shell: /bin/bash
   tags: [user_init]
 
+- name: Generate an OpenSSH keypair to path {{ path_and_filename_of_private_ssh_key_on_localhost }}
+  become: false
+  community.crypto.openssh_keypair:
+    path: "{{ path_and_filename_of_private_ssh_key_on_localhost }}"
+    regenerate: never
+  when: autogenerate_ssh_key == true
+  delegate_to: localhost
+  tags: [user_init]
+
 - name: Add SSH public key for user
   authorized_key:
     user: "{{ user_to_add }}"
     state: present
-    key: "{{ lookup('file', '/home/' + user_to_add+ '/.ssh/id_rsa.pub') }}"
+    key: "{{ lookup('file', path_and_filename_of_private_ssh_key_on_localhost ~ '.pub') }}"
   tags: [user_init]
