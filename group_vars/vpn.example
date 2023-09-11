@@ -7,12 +7,22 @@ user_password: password #password for added user
 pi_hole_admin_password: password #password for pihole admin panel
 number_of_vpns: 1 #playbook can generate multiple VPN networks (it is not necessary)
 fallback_wireguard_listen_ports: 123,1194 # if wireguard_listen_port blocked we can use this ports
-vpn_listen_port_base: 5182 #real port for VPN as '5182'~'vpn_number'= 51820,51821,51822...
-install_zram: false #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example) it is good method to upgrade your VPS
-restricted_p2p_ports: [123,137,443,80,8009] #5222 it is telegram, do not restrict it
-allowed_p2p_hosts: [d.t-relay.moesdr.eu.org] # host names for allowing p2p traffic by resolvng it on install
-restricted_p2p_tcp_ports: [123,443,80,8009,5228] #5222 it is telegram, do not restrict it
-restricted_p2p_udp_ports: [137]
-autogenerate_ssh_key: false #generate ssh keys automaticaly to secure access to remote host 
-#it is name of private key for autogeneration, or if you want to, will be used existing public key for registration with name `path_and_filename_of_private_ssh_key_on_localhost+.pub`
+vpn_listen_port_base: 5182 #need to check with allow_only_p2p_udp_ports
+install_zram: false #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example)
+restricted_p2p_tcp_ports: [] #found p2p ports list, because by default used allow_only_p2p_tcp_ports it is just for note
+restricted_p2p_udp_ports: [] #found p2p ports list, because by default used allow_only_p2p_udp_ports it is just for note
+#if allow_only_p2p_tcp_ports is not empty, all ports restricterd except 
+allow_only_p2p_tcp_ports: [5222,5228,22] # 5222 it is telegram, do not restrict it 5228 it is google play
+#if allow_only_p2p_udp_ports is not empty, all ports restricterd except 
+allow_only_p2p_udp_ports: [51820]
+autogenerate_ssh_key: true # generate ssh keys automaticaly
+# it is name of private key for autogeneration, or if you want to, will be used existing public key for registration with name `path_and_filename_of_private_ssh_key_on_localhost+.pub`
 path_and_filename_of_private_ssh_key_on_localhost: /home/{{ user_to_add }}/.ssh/id_rsa_vpn #you must have personal ssh keypair for remote access to VPN server by ssh (or `autogenerate_ssh_key: true`)
+dns_ttl_sec: 60 #TTL for DNS responses from pi-hole
+wireguard_ping_period_sec: 25 #time between keep alive requests from wireguard
+
+# allow all p2p traffic example
+# restricted_p2p_tcp_ports: []
+# restricted_p2p_udp_ports: []
+# allow_only_p2p_tcp_ports: []
+# allow_only_p2p_udp_ports: []

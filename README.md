@@ -36,7 +36,7 @@ sudo apt-get install ansible
 If you do not have ssh keys, you must set `group_vars/vpn->autogenerate_ssh_key: true`
 3. Edit `inventory.example` file to add IP of your remote hosts to install VPN+Pihole, in this file possible to set ssh access params.
 And rename it to `inventory`
-4. If need add some urls to `autoresolve.txt`. This urls will be resolved and IPs added to allowed for p2p connections
+4. If need add some space separated urls to `autoresolve.txt`. This urls will be resolved and IPs added to allowed for p2p connections
 5. If need add some urls to default Pi-hole whitelist in file `pi_hole_whitelist.txt`
 6. Execute command on LOCAL computer (in dir with deploy.yml file) 
 ```bash
@@ -87,7 +87,7 @@ Telegram use 5222,80,443 but 80,443 not only Telegram, so 80,443 were restricted
 ## Using VPN from phone:
 
 1. Install wireguard client to phone
-2. Scan QR code of any client from client dir (config_*.txt files it is QR codes) and connect to VPN
+2. Scan QR code of any client from client dir (config_*.qr.txt files it is QR codes) and connect to VPN
 3. Open http://pi.hole/admin in browser (access only from VPN, password from `group_vars/vpn->pi_hole_admin_password`)
 
 ## Using from local computer

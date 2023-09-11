@@ -3,3 +3,7 @@ yt3.ggpht.com
 i.ytimg.com
 login.microsoftonline.com
 github.com
+clients4.google.com
+casio.sc.omtrdc.net
+raw.githubusercontent.com
+graph.instagram.com

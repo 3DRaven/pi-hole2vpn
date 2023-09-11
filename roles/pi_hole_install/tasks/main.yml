@@ -9,24 +9,9 @@
     update_cache: true
   tags: [pi_hole_install]
 
-- name: Backup old Dnsmasq config
-  copy: 
-    remote_src: True 
-    src: /etc/dnsmasq.conf 
-    dest: /etc/dnsmasq.conf.bak
-    force: no #backup only system wide file
-  tags: [pi_hole_install]
-
-- name: Create Dnsmasq config for host frontend DNS
-  template:
-    src: dnsmasq.j2.conf
-    dest: /etc/dnsmasq.conf
-    mode: 0600
-  tags: [pi_hole_install]
-
-- name: Create docker compose configuration directory
+- name: Create docker compose and pi hole configuration directories
   file:
-    path: /etc/docker/compose/pi-hole
+    path: /etc/docker/compose/pi-hole/etc-pihole
     state: directory
     mode: 0700
   become: true
@@ -111,49 +96,80 @@
 - name: Waiting pihole full up for front DNS server
   ansible.builtin.wait_for:
     port: 53
-    host: "127.0.0.1"
+    host: "{{ vpn_net_base ~ '.0' }}.1"
   tags: [pi_hole_install]
 
-- name: ACCEPT local DNS servers requests - UDP
-  iptables:
-    table: filter
-    chain: OUTPUT
-    protocol: udp
-    destination_port: 53
-    out_interface: lo
-    jump: ACCEPT
+- name: Create pi-hole FTL config
+  template:
+    src: pihole-FTL.j2.conf
+    dest: /etc/docker/compose/pi-hole/etc-pihole/pihole-FTL.conf
+    mode: 0600
+  tags: [pi_hole_install]
+
+- name: Restart pihole container for reloading FTL config
+  community.docker.docker_compose:
+    project_src: /etc/docker/compose/pi-hole
+    state: present
+    restarted: true
+    # debug: true
+  tags: [pi_hole_install]
+
+- name: Create ipset for Dnsmasq to write allowed IPs
+  command: ipset -exist create pihole hash:ip
   tags: [pi_hole_install]
   
-- name: ACCEPT local DNS servers requests - TCP
+- name: Backup old Dnsmasq config
+  copy: 
+    remote_src: True 
+    src: /etc/dnsmasq.conf 
+    dest: /etc/dnsmasq.conf.bak
+    force: no #backup only system wide file
+  tags: [pi_hole_install]
+
+- name: Create dnsmasq config for host backend DNS
+  template:
+    src: dnsmasq.j2.conf
+    dest: /etc/dnsmasq.conf
+    mode: 0600
+  tags: [pi_hole_install]
+
+- name: Start and enable host Dnsmasq service
+  service:
+    name: dnsmasq
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  tags: [pi_hole_install]
+
+# - name: Add pi-hole as first system DNS
+#   lineinfile:
+#     path: /etc/resolv.conf
+#     state: present
+#     firstmatch: yes
+#     insertbefore: '^nameserver.*' 
+#     line: "nameserver {{ vpn_net_base ~ '.0.1' }}"
+#   tags: [pi_hole_install]
+
+- name: ACCEPT DNS requests from pihole in docker to host dnsmasq - TCP
   iptables:
     table: filter
-    chain: OUTPUT
+    chain: INPUT
     protocol: tcp
     destination_port: 53
-    out_interface: lo
+    in_interface: br-pihole
     jump: ACCEPT
   tags: [pi_hole_install]
   
-- name: ACCEPT DNS requests on br-pihole - TCP
+- name: ACCEPT DNS requests from pihole in docker to host dnsmasq - UDP
   iptables:
     table: filter
-    chain: OUTPUT
-    protocol: tcp
-    destination_port: 53
-    out_interface: br-pihole
-    jump: ACCEPT
-  tags: [pi_hole_install]
-  
-- name: ACCEPT DNS requests on br-pihole - UDP
-  iptables:
-    table: filter
-    chain: OUTPUT
+    chain: INPUT
     protocol: udp
     destination_port: 53
-    out_interface: br-pihole
+    in_interface: br-pihole
     jump: ACCEPT
   tags: [pi_hole_install]
-  
+
 - name: Add DNAT redirect rule for DNS traffic by UDP for unknown p2p DNS requests
   iptables:
     table: nat
@@ -182,57 +198,68 @@
     to_destination: "{{ vpn_net_base ~ '.' ~ 0 }}.1:53"
   tags: [pi_hole_install]
 
-# - name: Add dnsmasq as first system DNS
-#   lineinfile:
-#     path: /etc/resolv.conf
-#     state: present
-#     firstmatch: yes
-#     insertbefore: '^nameserver.*' 
-#     line: "nameserver {{ vpn_net_base ~ '.' ~ vpn_number }}.1"
-#   loop: "{{ range(0, number_of_vpns) | list }}"
-#   loop_control:
-#     loop_var: vpn_number
+# - name: Install Dnspython Module for Python
+#   pip:
+#     name: dnspython
 #   tags: [pi_hole_install]
 
-- name: Create ipset for pihole
-  command: ipset -exist create pihole hash:ip
+- name: Execute implicitly resolve IPs to grant p2p
+  command: "/usr/bin/dig @172.18.0.1 {{ lookup('file', 'autoresolve.txt') }}"
   tags: [pi_hole_install]
 
-- name: Start and enable host Dnsmasq service
-  service:
-    name: dnsmasq
-    state: restarted
-    enabled: true
-    daemon_reload: true
+- name: Add to cron implicitly resolve IPs to grant p2p at reboot
+  cron:
+    name: Implicitly resolve IPs to grant p2p
+    backup: true
+    job: "/usr/bin/dig @172.18.0.1 {{ lookup('file', 'autoresolve.txt') }}"
+    special_time: reboot
   tags: [pi_hole_install]
 
-- name: Implicitly resolve IPs to grant p2p for it
-  set_fact:
-    ips: "{{ lookup('dig', item, '@'~vpn_net_base~'.0.1') }}"
-  with_lines: cat autoresolve.txt
-  register: grant_ips
-  tags: [pi_hole_install]
+# - name: Implicitly resolve IPs to grant p2p for it
+#   set_fact:
+#     ips: "{{ lookup('dig', item, '@'~vpn_net_base~'.0.1') }}"
+#   with_lines: cat autoresolve.txt
+#   register: grant_ips
+#   tags: [pi_hole_install]
 
-- name: Construct grant IPs list
-  set_fact:  
-    grant_ip_list: "{{ (grant_ip_list | default([])) + (grant_ip_fact.ansible_facts.ips.split(',')) | list }}" 
-  loop: "{{ grant_ips.results | list }}"
-  loop_control:
-    loop_var: grant_ip_fact
-  tags: [pi_hole_install]
+# - name: Construct grant IPs list
+#   set_fact:  
+#     grant_ip_list: "{{ (grant_ip_list | default([])) + (grant_ip_fact.ansible_facts.ips.split(',')) | list }}" 
+#   loop: "{{ grant_ips.results | list }}"
+#   loop_control:
+#     loop_var: grant_ip_fact
+#   tags: [pi_hole_install]
 
-- name: Add resolved IPs to ipset
-  command: "ipset -exist add pihole {{ grant_ip }}"
-  loop: "{{ grant_ip_list | list}}"
-  loop_control:
-    loop_var: grant_ip
-  tags: [pi_hole_install]
+# - name: Add resolved IPs to ipset
+#   command: "ipset -exist add pihole {{ grant_ip }}"
+#   loop: "{{ grant_ip_list | list}}"
+#   loop_control:
+#     loop_var: grant_ip
+#   tags: [pi_hole_install]
 
 - name: Fill pihole whitelist
   community.docker.docker_container_exec:
     container: pihole
     command: "pihole -w {{ item }}"
   with_lines: cat pi_hole_whitelist.txt
+  tags: [pi_hole_install]
+
+- name: ACCEPT TCP DNS requests in the mangle table's PREROUTING chain for p2p hosts, as we will later redirect them to Pi-hole
+  iptables:
+    table: mangle
+    chain: PREROUTING
+    protocol: tcp
+    destination_port: 53
+    jump: ACCEPT
+  tags: [pi_hole_install]
+
+- name: ACCEPT UDP DNS requests in the mangle table's PREROUTING chain for p2p hosts, as we will later redirect them to Pi-hole
+  iptables:
+    table: mangle
+    chain: PREROUTING
+    protocol: udp
+    destination_port: 53
+    jump: ACCEPT
   tags: [pi_hole_install]
 
 - name: Check old logging TCP p2p new connections rule exists
@@ -266,13 +293,13 @@
   register: checking_result
   changed_when: false
   failed_when: checking_result.rc != 0 and checking_result.rc != 1
-  when: restricted_p2p_tcp_ports | length > 0
+  when: (restricted_p2p_tcp_ports | length > 0) and (allow_only_p2p_tcp_ports | length == 0)
   tags: [pi_hole_install]
 
 - name: Add DROP OUT TCP p2p connections for ports {{ restricted_p2p_tcp_ports|join(',') }} (DoH as example)
   command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport --dports {{ restricted_p2p_tcp_ports|join(",") }} -j DROP'
   changed_when: checking_result.rc == 1
-  when: (checking_result.rc == 1) and (restricted_p2p_tcp_ports | length > 0)
+  when: ((restricted_p2p_tcp_ports | length > 0) and (allow_only_p2p_tcp_ports | length == 0)) and (checking_result.rc == 1)
   tags: [pi_hole_install]
 
 - name: Check old DROP OUT UDP p2p connections rule exists
@@ -280,11 +307,39 @@
   register: checking_result
   changed_when: false
   failed_when: checking_result.rc != 0 and checking_result.rc != 1
-  when: restricted_p2p_udp_ports | length > 0
+  when: (restricted_p2p_udp_ports | length > 0) and (allow_only_p2p_udp_ports | length == 0)
   tags: [pi_hole_install]
 
 - name: Add DROP OUT UDP p2p connections for ports {{ restricted_p2p_udp_ports|join(',') }}
   command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p udp -m multiport --dports {{ restricted_p2p_udp_ports|join(",") }} -j DROP'
   changed_when: checking_result.rc == 1
-  when: (checking_result.rc == 1) and (restricted_p2p_udp_ports | length > 0)
+  when: ((restricted_p2p_udp_ports | length > 0) and (allow_only_p2p_udp_ports | length == 0)) and (checking_result.rc == 1)
+  tags: [pi_hole_install]
+
+- name: Check old allow only OUT TCP p2p connections rule exists
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport ! --dports {{ allow_only_p2p_tcp_ports|join(",") }} -j DROP'
+  register: checking_result
+  changed_when: false
+  failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  when: allow_only_p2p_tcp_ports | length > 0
+  tags: [pi_hole_install]
+
+- name: Add allow only OUT TCP p2p connections for ports {{ allow_only_p2p_tcp_ports|join(',') }}
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p tcp -m multiport ! --dports {{ allow_only_p2p_tcp_ports|join(",") }} -j DROP'
+  changed_when: checking_result.rc == 1
+  when: (allow_only_p2p_tcp_ports | length > 0) and (checking_result.rc == 1)
+  tags: [pi_hole_install]
+
+- name: Check old allow only OUT UDP p2p connections rule exists
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p udp -m multiport ! --dports {{ allow_only_p2p_udp_ports|join(",") }} -j DROP'
+  register: checking_result
+  changed_when: false
+  failed_when: checking_result.rc != 0 and checking_result.rc != 1
+  when: allow_only_p2p_udp_ports | length > 0
+  tags: [pi_hole_install]
+
+- name: Add allow only OUT UDP p2p connections for ports {{ allow_only_p2p_udp_ports|join(',') }}
+  command: 'iptables -t mangle -A PREROUTING -s {{ vpn_net_base ~ "." ~ 0 }}.0/16 ! -d {{ vpn_net_base ~ "." ~ 0 }}.0/16 -m set ! --match-set pihole dst -p udp -m multiport ! --dports {{ allow_only_p2p_udp_ports|join(",") }} -j DROP'
+  changed_when: checking_result.rc == 1
+  when: (allow_only_p2p_udp_ports | length > 0) and (checking_result.rc == 1)
   tags: [pi_hole_install]
