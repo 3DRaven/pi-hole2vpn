@@ -1,18 +1,24 @@
 # need to rename file vpn.example to vpn
 
-ssh_port: 22 #remote host ssh port
-vpn_net_base: 10.156 #start of network address
+# must
+
 user_to_add: user #user to add to remote host for ssh login instead of root
 user_password: password #password for added user
 pi_hole_admin_password: password #password for pihole admin panel
+clients_count: 10 # number of generated VPN clients configs
+
+# defaults
+
+ssh_port: 22 #remote host ssh port
+vpn_net_base: 10.156 #start of network address
 number_of_vpns: 1 #playbook can generate multiple VPN networks (it is not necessary)
 fallback_wireguard_listen_ports: 123,1194 # if wireguard_listen_port blocked we can use this ports
 vpn_listen_port_base: 5182 #need to check with allow_only_p2p_udp_ports
-install_zram: false #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example)
+install_zram: true #if you use linux kernel on VPS with zram module set it to true (on Amazon EC2 as example)
 restricted_p2p_tcp_ports: [] #found p2p ports list, because by default used allow_only_p2p_tcp_ports it is just for note
 restricted_p2p_udp_ports: [] #found p2p ports list, because by default used allow_only_p2p_udp_ports it is just for note
 #if allow_only_p2p_tcp_ports is not empty, all ports restricterd except 
-allow_only_p2p_tcp_ports: [5222,5228,22] # 5222 it is telegram, do not restrict it 5228 it is google play
+allow_only_p2p_tcp_ports: [5222,5228,5229,5230,5235,5236,22] # 5222 it is telegram, do not restrict it 5228-5230,35,36 it is google services
 #if allow_only_p2p_udp_ports is not empty, all ports restricterd except 
 allow_only_p2p_udp_ports: [51820]
 autogenerate_ssh_key: true # generate ssh keys automaticaly

@@ -35,11 +35,11 @@
     - adblock_add
   tags: [adblock_add]
 
-# - hosts: vpn
-#   become: true
-#   roles:
-#     - adblock_remove
-#   tags: [adblock_remove]
+- hosts: vpn
+  become: true
+  roles:
+    - adblock_remove
+  tags: [adblock_remove]
 
 - hosts: vpn
   become: true

@@ -198,50 +198,61 @@
     to_destination: "{{ vpn_net_base ~ '.' ~ 0 }}.1:53"
   tags: [pi_hole_install]
 
-# - name: Install Dnspython Module for Python
-#   pip:
-#     name: dnspython
-#   tags: [pi_hole_install]
+- name: Include variables from data.yml
+  ansible.builtin.include_vars:
+    file: data.yml
+    name: data
+  tags: [pi_hole_install]
 
-- name: Execute implicitly resolve IPs to grant p2p
-  command: "/usr/bin/dig @172.18.0.1 {{ lookup('file', 'autoresolve.txt') }}"
+- name: Split autoresolve list to groups
+  set_fact:
+    grouped_list: "{{ data.autoresolvelist | batch(10) | list | map('join', ' ') | list }}"
   tags: [pi_hole_install]
 
 - name: Add to cron implicitly resolve IPs to grant p2p at reboot
   cron:
-    name: Implicitly resolve IPs to grant p2p
+    name: "Implicitly resolve IPs to grant p2p at reboot {{ item_idx }}"
     backup: true
-    job: "/usr/bin/dig @172.18.0.1 {{ lookup('file', 'autoresolve.txt') }}"
+    job: "/usr/bin/dig @172.18.0.1 {{ item }}"
     special_time: reboot
+  loop: "{{ grouped_list }}"
+  loop_control:
+    index_var: item_idx
   tags: [pi_hole_install]
 
-# - name: Implicitly resolve IPs to grant p2p for it
-#   set_fact:
-#     ips: "{{ lookup('dig', item, '@'~vpn_net_base~'.0.1') }}"
-#   with_lines: cat autoresolve.txt
-#   register: grant_ips
-#   tags: [pi_hole_install]
+- name: Add to cron implicitly resolve IPs to grant p2p periodicaly
+  cron:
+    name: "Implicitly resolve IPs to grant p2p periodicaly {{ item_idx }}"
+    backup: false
+    job: "/usr/bin/dig @172.18.0.1 {{ item }}"
+    minute: "*/1"
+  loop: "{{ grouped_list }}"
+  loop_control:
+    index_var: item_idx
+  tags: [pi_hole_install]
 
-# - name: Construct grant IPs list
-#   set_fact:  
-#     grant_ip_list: "{{ (grant_ip_list | default([])) + (grant_ip_fact.ansible_facts.ips.split(',')) | list }}" 
-#   loop: "{{ grant_ips.results | list }}"
-#   loop_control:
-#     loop_var: grant_ip_fact
-#   tags: [pi_hole_install]
+- name: Split whitelist_wildcard to groups
+  set_fact:
+    grouped_list: "{{ data.whitelist_wildcard | batch(10) | list | map('join', ' ') | list }}"
+  tags: [pi_hole_install]
 
-# - name: Add resolved IPs to ipset
-#   command: "ipset -exist add pihole {{ grant_ip }}"
-#   loop: "{{ grant_ip_list | list}}"
-#   loop_control:
-#     loop_var: grant_ip
-#   tags: [pi_hole_install]
+- name: Fill pihole whitelist wildcard
+  community.docker.docker_container_exec:
+    container: pihole
+    command: "pihole --white-wild {{ item }}"
+  loop: "{{ grouped_list }}"
+  tags: [pi_hole_install]
 
-- name: Fill pihole whitelist
+- name: Split whitelist_exactly to groups
+  set_fact:
+    grouped_list: "{{ data.whitelist_exactly | batch(10) | list | map('join', ' ') | list }}"
+  tags: [pi_hole_install]
+
+- name: Fill pihole whitelist exactly
   community.docker.docker_container_exec:
     container: pihole
     command: "pihole -w {{ item }}"
-  with_lines: cat pi_hole_whitelist.txt
+  loop: "{{ grouped_list }}"
   tags: [pi_hole_install]
 
 - name: ACCEPT TCP DNS requests in the mangle table's PREROUTING chain for p2p hosts, as we will later redirect them to Pi-hole

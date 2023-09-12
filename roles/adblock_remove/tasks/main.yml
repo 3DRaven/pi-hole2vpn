@@ -8,15 +8,22 @@
     update_cache: true
   tags: [adblock_remove]
 
+- name: Include variables from data.yml
+  ansible.builtin.include_vars:
+    file: data.yml
+    name: data
+  tags: [adblock_remove]
+
 - name: Remove adblock lists from pihole gravity.db
   command: sqlite3 /etc/docker/compose/pi-hole/etc-pihole/gravity.db "DELETE FROM adlist WHERE address='{{ item }}'"
   register: insert_result
   until: insert_result.rc == 0
   retries: 10
   delay: 5
-  with_lines: cat adlists_remove.txt
+  loop: "{{ data.blocklists_remove | list }}"
   tags: [adblock_remove]
 
 - name: Reload pihole gravity
   command: docker exec pihole pihole -g
+  when: data.blocklists_remove | list | length > 0
   tags: [adblock_remove]

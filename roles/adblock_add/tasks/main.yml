@@ -8,15 +8,22 @@
     update_cache: true
   tags: [adblock_add]
 
+- name: Include variables from data.yml
+  ansible.builtin.include_vars:
+    file: data.yml
+    name: data
+  tags: [adblock_add]
+
 - name: Import adblock lists to pihole gravity.db
   command: sqlite3 /etc/docker/compose/pi-hole/etc-pihole/gravity.db "INSERT OR IGNORE INTO adlist (address, enabled, comment) VALUES ('{{ item }}', 1, 'comment');"
   register: insert_result
   until: insert_result.rc == 0
   retries: 10
   delay: 5
-  with_lines: cat adlists_add.txt
+  loop: "{{ data.blocklists_add | list }}"
   tags: [adblock_add]
 
 - name: Reload pihole gravity
   command: docker exec pihole pihole -g
+  when: data.blocklists_add | list | length > 0
   tags: [adblock_add]

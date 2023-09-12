@@ -2,10 +2,8 @@
 
 ## Why
 
-1. I found only pre-built droplets on DigitalOcean and a lot of instructions about setting up Pi-hole and WireGuard, but I do not want to configure
-    everything each time with so many settings. Ansible is an easy method to write some "setup notes" one time, and DigitalOcean has traffic limits
-    on droplets.
-2. When I use ad-blocker DNS, my phone stays cool and works for a full day (now it works 24 hours without charging, I finally measured it) :) It is truly the best method to increase battery lifetime. But, if all p2p connections disabled, battery lifetime increased to 80 hours with my
+1. I found only pre-built droplets on DigitalOcean and a lot of instructions about setting up Pi-hole and WireGuard, but I do not want to configure everything each time with so many settings. Ansible is an easy method to write some "setup notes" one time, and DigitalOcean has traffic limits on droplets.
+2. When I use ad-blocker DNS, my phone stays cool and works for a full day (now it works 24 hours without charging) It is truly the best method to increase battery lifetime. But, if all p2p connections disabled, battery lifetime increased to 47 hours with my
 using cases, it is fantastic.
 3. I dislike spyware.
 
@@ -36,8 +34,8 @@ sudo apt-get install ansible
 If you do not have ssh keys, you must set `group_vars/vpn->autogenerate_ssh_key: true`
 3. Edit `inventory.example` file to add IP of your remote hosts to install VPN+Pihole, in this file possible to set ssh access params.
 And rename it to `inventory`
-4. If need add some space separated urls to `autoresolve.txt`. This urls will be resolved and IPs added to allowed for p2p connections
-5. If need add some urls to default Pi-hole whitelist in file `pi_hole_whitelist.txt`
+4. If need edit `data.yml` to set whitelists, blocklists and autoresolve urls. Autoresolve urls enable p2p traffic for resolved IPs. 
+By default added Google services and Telegram.
 6. Execute command on LOCAL computer (in dir with deploy.yml file) 
 ```bash
 ansible-playbook --ask-become-pass ./deploy.yml
@@ -49,7 +47,7 @@ ansible-playbook --ask-become-pass ./deploy.yml --tags adblock_add
 ```    
 7. insert REMOTE sudo password to prompt. At first run it is default for Ubuntu empty sudo password, next runs it is password from `group_vars/vpn->user_password`
 8. After installation will be created dir `clients` in playbook dir. It is configuration files for clients and QR codes to scan from phone for connectiong to VPN.
-9. At the end of instalation adblock lists from adlists_add.txt will be loaded to pihole and from adlists_remove.txt will be removed.
+9. At the end of instalation adblock lists from `data.yml` will be loaded or removed.
 It is possible to run `adblock_add` `adblock_remove` tags separately if need at any time.
 ```bash
 ansible-playbook ./deploy.yml --tags adblock_add,adblock_remove
@@ -71,7 +69,7 @@ at next runs after first success run it will be
 1. Default ubuntu user with name `ubuntu` on remote host will be disabled and registered user with name `group_vars/vpn->user_to_add`.
 For the user on remote host will be registered new generated public key or existing public key from path `group_vars/vpn->path_and_filename_of_private_ssh_key_on_localhost`+`.pub` 
 3. Docker is installed on the remote host.
-4. Pi-hole DNS is installed on the remote host. Added whitelist.
+4. Pi-hole DNS is installed on the remote host. Added whitelists.
 5. All requests to port 53 inside the VPN will be redirected to the Pi-hole DNS, even if some spyware attempts to make a direct request to 8.8.8.8 or other.
 6. Zram is installed if `install_zram: true`. It is a good method to expand VPS RAM on the remote host. But you must have 
 linux kernel with zram module. As example https://liquorix.net/#install
@@ -81,9 +79,8 @@ linux kernel with zram module. As example https://liquorix.net/#install
     This configs will be placed to ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/dns
   * All traffic over VPN. This in ./clients/111-42.eu-north-1.compute.amazonaws.com/etc/wireguard/clients/wg0/full
 9. (not tested) If default `group_vars/vpn->wireguard_listen_port` port is blocked all traffic from ports `group_vars/vpn->fallback_wireguard_listen_ports` will be redirected to `group_vars/vpn->wireguard_listen_port`
-10. All unknown p2p TCP traffic not recognized by Pi-Hole to tcp ports [123,443,80,8009] and udp ports [137] disabled and totaly all logged. 
-Some spyware apps use direct requests. After I found this hidden traffic, battery lifetime significantly increased. 
-Telegram use 5222,80,443 but 80,443 not only Telegram, so 80,443 were restricted and it works fine.
+10. All unknown p2p TCP traffic not recognized by Pi-Hole (and autoresolve from `data.yml`) to all p2p tcp and udp ports will be
+disabled (by settings below) and totaly all logged. Some spyware apps use direct requests. After I found this hidden traffic, battery lifetime significantly increased. Use `group_vars/vpn->(allow_only_p2p_tcp_ports||allow_only_p2p_udp_ports)` to set only allowed ports or `group_vars/vpn->(restricted_p2p_tcp_ports||restricted_p2p_udp_ports)` to restrict only ports from lists and allow other.
 ## Using VPN from phone:
 
 1. Install wireguard client to phone
@@ -124,8 +121,7 @@ nmcli connection delete client_4
   * iptables -t raw -A OUTPUT -p udp -j TRACE
   * iptables -t raw -A PREROUTING -p udp -j TRACE
   * xtables-monitor --trace
-6. If some apps do not work: remove all blocked p2p ports `group_vars->vpn->restricted_p2p_*_ports` and replay playbook. It is just for test.
-You can find some blocked applications and investigate better solution.
+6. If some apps do not work: remove all blocked p2p ports `group_vars/vpn->allow all p2p traffic example` and replay playbook. It is just for test. You can find some blocked applications and investigate better solution.
 ## Spy-hunting
 
 If you want to, you can identify additional ports used by spyware on your phone:
@@ -134,6 +130,4 @@ If you want to, you can identify additional ports used by spyware on your phone:
 2. `sudo su`
 3. `cat /var/log/syslog |grep p2p|grep -o "PROTO.*DPT=[0-9]*"|sort|uniq`
 
-The above command will help you identify and list the unique ports that might be associated with spyware activity.
-Ports 123, 137 (udp), 443, 80, 5228 and 8009 have been identified and closed for now.
-Do not forget to identify the protocol as well.
+The above command will help you identify and list the unique ports and protocols that might be associated with spyware activity.
